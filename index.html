@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GraphShield - Real-time Anti-Mule & AML Graph Intelligence</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Vis.js Network CDN -->
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b0f19',
+                        panelBg: '#111827',
+                        borderClr: '#1f2937',
+                        accentCyan: '#06b6d4',
+                        accentGreen: '#10b981',
+                        accentRed: '#ef4444',
+                        accentAmber: '#f59e0b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(239, 68, 68, 0.9); }
+        }
+        .pulse-critical {
+            animation: pulseGlow 1.5s infinite;
+        }
+        #network-canvas {
+            width: 100%;
+            height: calc(100vh - 170px);
+            background: radial-gradient(circle at center, #131b2e 0%, #0b0f19 100%);
+        }
+    </style>
+</head>
+<body class="bg-darkBg text-slate-100 font-sans min-h-screen flex flex-col overflow-hidden">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-panelBg/90 backdrop-blur border-b border-borderClr px-6 py-3 flex items-center justify-between z-20">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                <i data-lucide="shield-alert" class="w-6 h-6 text-white"></i>
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 via-teal-300 to-emerald-400 bg-clip-text text-transparent">GraphShield AML</h1>
+                    <span class="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded-full font-mono font-medium">v2.4 - QĐ 2345/NHNN</span>
+                </div>
+                <p class="text-xs text-slate-400">Core Banking Real-time Graph Intelligence & Mule Account Isolation</p>
+            </div>
+        </div>
+
+        <!-- Metric Badges -->
+        <div class="flex items-center space-x-6 text-sm">
+            <div class="flex items-center space-x-2 bg-slate-900/80 border border-borderClr px-3 py-1.5 rounded-lg">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                <span class="text-slate-400 text-xs">Engine Latency:</span>
+                <span class="font-mono text-emerald-400 font-semibold" id="metric-latency">18.4 ms</span>
+            </div>
+            <div class="flex items-center space-x-2 bg-slate-900/80 border border-borderClr px-3 py-1.5 rounded-lg">
+                <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+                <span class="text-slate-400 text-xs">Throughput:</span>
+                <span class="font-mono text-cyan-400 font-semibold">1,420 TPS</span>
+            </div>
+            <div class="flex items-center space-x-2 bg-slate-900/80 border border-borderClr px-3 py-1.5 rounded-lg">
+                <i data-lucide="lock" class="w-4 h-4 text-rose-400"></i>
+                <span class="text-slate-400 text-xs">Ngăn chặn thất thoát:</span>
+                <span class="font-mono text-rose-400 font-semibold" id="metric-prevented">47.500.000 đ</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sub-header Control Bar -->
+    <div class="bg-slate-900/70 border-b border-borderClr px-6 py-2.5 flex items-center justify-between z-10">
+        <div class="flex items-center space-x-3">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center space-x-1.5">
+                <i data-lucide="play-circle" class="w-4 h-4 text-cyan-400"></i>
+                <span>Mô phỏng Kịch bản:</span>
+            </span>
+            <button onclick="loadScenario('normal')" id="btn-normal" class="scenario-btn px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 transition flex items-center space-x-1.5">
+                <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>1. VietQR Thường Ngày</span>
+            </button>
+            <button onclick="loadScenario('smurfing')" id="btn-smurfing" class="scenario-btn px-3 py-1.5 rounded-lg text-xs font-medium border border-rose-900/80 bg-rose-950/60 text-rose-200 hover:bg-rose-900 transition flex items-center space-x-1.5">
+                <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-rose-400"></i>
+                <span>2. Smurfing Né QĐ 2345 (HOT)</span>
+            </button>
+            <button onclick="loadScenario('circular')" id="btn-circular" class="scenario-btn px-3 py-1.5 rounded-lg text-xs font-medium border border-amber-900/80 bg-amber-950/60 text-amber-200 hover:bg-amber-900 transition flex items-center space-x-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span>3. Rửa Tiền Vòng Tròn (Cycle)</span>
+            </button>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <button onclick="autoFreezeMules()" id="btn-freeze" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-red-600 to-rose-700 text-white shadow-lg shadow-rose-900/40 hover:from-red-500 hover:to-rose-600 transition flex items-center space-x-2">
+                <i data-lucide="zap" class="w-4 h-4"></i>
+                <span>⚡ KHÓA KHẨN CẤP MẠNG LƯỚI MULE</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Content Area: Left Graph, Right Alert Panel -->
+    <div class="flex-1 flex relative overflow-hidden">
+        
+        <!-- Graph Canvas -->
+        <div class="flex-1 relative">
+            <div id="network-canvas"></div>
+            
+            <!-- Graph Legend Overlay -->
+            <div class="absolute bottom-4 left-4 bg-panelBg/80 backdrop-blur border border-borderClr p-3 rounded-xl text-xs space-y-1.5 shadow-xl pointer-events-none">
+                <div class="font-semibold text-slate-300 mb-1">Chú thích Node:</div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                    <span class="text-slate-300">Tài khoản hợp lệ (eKYC Chip)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>
+                    <span class="text-slate-300">Tài khoản Rác (Mule Account)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-purple-500 inline-block"></span>
+                    <span class="text-slate-300">Trùm Gom Tiền (Master Aggregator)</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
+                    <span class="text-slate-300">Nút Nghi Vấn Chu Trình (Cycle Layering)</span>
+                </div>
+            </div>
+
+            <!-- Active Scenario Brief Toast -->
+            <div id="scenario-brief" class="absolute top-4 left-4 max-w-md bg-panelBg/90 backdrop-blur border border-borderClr p-4 rounded-xl shadow-2xl text-xs">
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="font-bold text-sm text-cyan-300" id="brief-title">Đang tải kịch bản...</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded font-mono" id="brief-badge">ACTIVE</span>
+                </div>
+                <p class="text-slate-400 leading-relaxed" id="brief-desc"></p>
+            </div>
+        </div>
+
+        <!-- Right Side: Security Operations Panel (Alerts & Node Inspector) -->
+        <div class="w-96 bg-panelBg border-l border-borderClr flex flex-col h-full z-10">
+            <!-- Tabs -->
+            <div class="flex border-b border-borderClr text-xs font-semibold">
+                <button onclick="switchTab('alerts')" id="tab-alerts-btn" class="flex-1 py-3 text-center border-b-2 border-cyan-400 text-cyan-400 bg-slate-900/50">
+                    Cảnh Báo Vi Phạm (<span id="alert-count">0</span>)
+                </button>
+                <button onclick="switchTab('node-info')" id="tab-node-btn" class="flex-1 py-3 text-center text-slate-400 hover:text-slate-200">
+                    Chi Tiết Node
+                </button>
+            </div>
+
+            <!-- Tab 1: Real-time Incident Feed -->
+            <div id="tab-alerts" class="flex-1 overflow-y-auto p-4 space-y-3">
+                <div id="alerts-container" class="space-y-3">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <!-- Tab 2: Selected Node Inspection -->
+            <div id="tab-node-info" class="flex-1 overflow-y-auto p-4 hidden space-y-4 text-xs">
+                <div id="node-empty-state" class="text-center py-12 text-slate-500">
+                    <i data-lucide="mouse-pointer-click" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                    <p>Nhấp vào bất kỳ Node nào trên đồ thị để xem hồ sơ tài chính & KYC chi tiết.</p>
+                </div>
+
+                <div id="node-details" class="hidden space-y-4">
+                    <div class="bg-slate-900/80 border border-borderClr p-4 rounded-xl space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Mã Tài Khoản:</span>
+                            <span class="font-mono font-bold text-cyan-300" id="detail-id"></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Chủ tài khoản:</span>
+                            <span class="font-semibold text-slate-100" id="detail-name"></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Ngân hàng phát hành:</span>
+                            <span class="text-slate-200 font-medium" id="detail-bank"></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Định danh eKYC:</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono" id="detail-kyc"></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Tuổi tài khoản:</span>
+                            <span class="font-mono text-slate-200" id="detail-age"></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Số dư hiện tại:</span>
+                            <span class="font-mono font-bold text-emerald-400" id="detail-balance"></span>
+                        </div>
+                    </div>
+
+                    <!-- Risk Evaluation Gauge -->
+                    <div class="bg-slate-900/80 border border-borderClr p-4 rounded-xl space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-400">Chỉ số rủi ro (Graph Risk):</span>
+                            <span class="font-mono font-bold text-sm" id="detail-risk-score">95/100</span>
+                        </div>
+                        <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                            <div id="detail-risk-bar" class="bg-rose-500 h-full transition-all duration-500" style="width: 95%"></div>
+                        </div>
+                        <p class="text-[11px] text-slate-400 italic pt-1" id="detail-risk-reason"></p>
+                    </div>
+
+                    <button onclick="freezeSingleAccount()" id="btn-freeze-single" class="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg transition flex items-center justify-center space-x-1.5">
+                        <i data-lucide="shield-ban" class="w-4 h-4"></i>
+                        <span>Phong Tỏa Tài Khoản Này (QĐ 2345)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Footer Compliance Note -->
+            <div class="border-t border-borderClr p-3 bg-slate-950/80 text-[10px] text-slate-500 flex items-center justify-between">
+                <span>Tuân thủ: QĐ 2345/QĐ-NHNN & NĐ 13/2023</span>
+                <span class="text-emerald-500 font-mono flex items-center space-x-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>ONLINE</span>
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Vis.js and Logic Script -->
+    <script>
+        let network = null;
+        let nodesDataset = null;
+        let edgesDataset = null;
+        let currentScenario = 'smurfing';
+        let selectedNode = null;
+        let totalPreventedVnd = 47500000;
+
+        // Scenarios definition (client-side standalone fallback & reactive)
+        const SCENARIOS = {
+            normal: {
+                title: "1. Kịch bản Giao dịch Hợp Lệ (VietQR P2P)",
+                badge: "SAFE",
+                badgeClass: "bg-emerald-950 text-emerald-300 border border-emerald-800",
+                desc: "Thanh toán ăn uống, siêu thị 50k - 500k. Các tài khoản có thâm niên > 180 ngày, định danh eKYC chip đầy đủ, luồng tiền phân tán tự nhiên.",
+                nodes: [
+                    { id: 'AN', label: 'Nguyễn Văn An\nVCB - eKYC Chip', group: 'legit', bank: 'Vietcombank', age: '450 ngày', balance: '15.500.000 đ', risk: 5, kyc: 'VERIFIED_CHIP' },
+                    { id: 'COFFEE', label: 'The Coffee House\nTCB Enterprise', group: 'merchant', bank: 'Techcombank', age: '1200 ngày', balance: '85.200.000 đ', risk: 2, kyc: 'ENTERPRISE' },
+                    { id: 'BINH', label: 'Trần Thị Bình\nMB - eKYC Chip', group: 'legit', bank: 'MBBank', age: '320 ngày', balance: '6.200.000 đ', risk: 4, kyc: 'VERIFIED_CHIP' },
+                    { id: 'MART', label: 'WinMart+\nBIDV Enterprise', group: 'merchant', bank: 'BIDV', age: '900 ngày', balance: '120.000.000 đ', risk: 1, kyc: 'ENTERPRISE' },
+                    { id: 'CUONG', label: 'Lê Văn Cường\nACB - eKYC Chip', group: 'legit', bank: 'ACB', age: '210 ngày', balance: '9.400.000 đ', risk: 6, kyc: 'VERIFIED_CHIP' }
+                ],
+                edges: [
+                    { from: 'AN', to: 'COFFEE', label: '65.000 đ', arrows: 'to', color: '#10b981' },
+                    { from: 'BINH', to: 'COFFEE', label: '120.000 đ', arrows: 'to', color: '#10b981' },
+                    { from: 'AN', to: 'MART', label: '340.000 đ', arrows: 'to', color: '#10b981' },
+                    { from: 'CUONG', to: 'BINH', label: '500.000 đ', arrows: 'to', color: '#10b981' }
+                ],
+                alerts: [
+                    {
+                        type: 'INFO',
+                        title: 'Luồng thanh toán P2P ổn định',
+                        detail: '100% tài khoản đã định danh CCCD gắn chip theo QĐ 2345. Không phát hiện bất thường.',
+                        time: '10:20:05',
+                        badge: 'AN TOÀN',
+                        badgeColor: 'text-emerald-400 bg-emerald-950/70 border-emerald-800'
+                    }
+                ]
+            },
+            smurfing: {
+                title: "2. Kịch bản Smurfing né QĐ 2345 (500Tr băm nhỏ)",
+                badge: "CRITICAL ALERT",
+                badgeClass: "bg-rose-950 text-rose-300 border border-rose-800 animate-pulse",
+                desc: "500 triệu bị băm nhỏ thành các món 9.2 - 9.8 triệu (dưới ngưỡng 10 triệu để né xác thực khuôn mặt 2345). 5 tài khoản rác mới tạo gom tiền về Trùm Master ATM.",
+                nodes: [
+                    { id: 'VICTIM', label: 'NẠN NHÂN: Đặng T. Hoa\nVCB - Bị Thao Túng', group: 'victim', bank: 'Vietcombank', age: '850 ngày', balance: '12.000.000 đ', risk: 45, kyc: 'VERIFIED_CHIP' },
+                    { id: 'MULE_1', label: 'Mule 1: Trần V. X\nVIB (Mới mở 3 ngày)', group: 'mule', bank: 'VIB', age: '3 ngày', balance: '9.500.000 đ', risk: 96, kyc: 'UNVERIFIED' },
+                    { id: 'MULE_2', label: 'Mule 2: Lê T. Y\nVPB (Mới mở 5 ngày)', group: 'mule', bank: 'VPBank', age: '5 ngày', balance: '9.800.000 đ', risk: 94, kyc: 'UNVERIFIED' },
+                    { id: 'MULE_3', label: 'Mule 3: Nguyễn V. Z\nTPB (Mới mở 2 ngày)', group: 'mule', bank: 'TPBank', age: '2 ngày', balance: '9.200.000 đ', risk: 98, kyc: 'UNVERIFIED' },
+                    { id: 'MULE_4', label: 'Mule 4: Hoàng V. K\nMSB (Mới mở 4 ngày)', group: 'mule', bank: 'MSB', age: '4 ngày', balance: '9.600.000 đ', risk: 95, kyc: 'UNVERIFIED' },
+                    { id: 'MASTER_ATM', label: 'TRÙM RỬA TIỀN\nLPB (Gom rút ATM)', group: 'boss', bank: 'LPBank', age: '14 ngày', balance: '47.500.000 đ', risk: 99, kyc: 'FAKE_ID' }
+                ],
+                edges: [
+                    { from: 'VICTIM', to: 'MULE_1', label: '9.500.000 đ', arrows: 'to', color: '#f59e0b', width: 2 },
+                    { from: 'VICTIM', to: 'MULE_2', label: '9.800.000 đ', arrows: 'to', color: '#f59e0b', width: 2 },
+                    { from: 'VICTIM', to: 'MULE_3', label: '9.200.000 đ', arrows: 'to', color: '#f59e0b', width: 2 },
+                    { from: 'VICTIM', to: 'MULE_4', label: '9.600.000 đ', arrows: 'to', color: '#f59e0b', width: 2 },
+                    { from: 'MULE_1', to: 'MASTER_ATM', label: '9.500.000 đ', arrows: 'to', color: '#ef4444', width: 3 },
+                    { from: 'MULE_2', to: 'MASTER_ATM', label: '9.800.000 đ', arrows: 'to', color: '#ef4444', width: 3 },
+                    { from: 'MULE_3', to: 'MASTER_ATM', label: '9.200.000 đ', arrows: 'to', color: '#ef4444', width: 3 },
+                    { from: 'MULE_4', to: 'MASTER_ATM', label: '9.600.000 đ', arrows: 'to', color: '#ef4444', width: 3 }
+                ],
+                alerts: [
+                    {
+                        type: 'DANGER',
+                        title: 'PHÁT HIỆN SMURFING NÉ QĐ 2345',
+                        detail: 'Xuất hiện 4 giao dịch liên tiếp từ 9.2M - 9.8M đ đổ vào 4 tài khoản mới mở < 5 ngày.',
+                        time: '10:24:12',
+                        badge: 'NGUY HIỂM CAO',
+                        badgeColor: 'text-rose-400 bg-rose-950/70 border-rose-800'
+                    },
+                    {
+                        type: 'CRITICAL',
+                        title: 'MÔ HÌNH FAN-OUT FAN-IN PHÁT HIỆN',
+                        detail: 'Toàn bộ tiền từ 4 Mule được chuyển dồn về node MASTER_ATM trong vòng 120 giây.',
+                        time: '10:24:45',
+                        badge: 'KHẨN CẤP',
+                        badgeColor: 'text-red-400 bg-red-950/70 border-red-800'
+                    }
+                ]
+            },
+            circular: {
+                title: "3. Kịch bản Rửa Tiền Vòng Tròn (Circular Layering)",
+                badge: "CYCLIC ANOMALY",
+                badgeClass: "bg-amber-950 text-amber-300 border border-amber-800",
+                desc: "Dòng tiền bất chính 250 triệu luân chuyển qua 4 ngân hàng (VCB -> MB -> TCB -> VPB -> VCB) nhằm xóa dấu vết luồng tiền bẩn.",
+                nodes: [
+                    { id: 'CIR_A', label: 'Cty Ma A (VCB)\nKhởi tạo tiền', group: 'cycle', bank: 'Vietcombank', age: '35 ngày', balance: '250.000.000 đ', risk: 88, kyc: 'BASIC' },
+                    { id: 'CIR_B', label: 'Tài khoản B (MB)\nTrung gian tầng 1', group: 'cycle', bank: 'MBBank', age: '28 ngày', balance: '248.000.000 đ', risk: 85, kyc: 'BASIC' },
+                    { id: 'CIR_C', label: 'Tài khoản C (TCB)\nTrung gian tầng 2', group: 'cycle', bank: 'Techcombank', age: '19 ngày', balance: '245.000.000 đ', risk: 89, kyc: 'BASIC' },
+                    { id: 'CIR_D', label: 'Tài khoản D (VPB)\nSàn P2P OTC', group: 'cycle', bank: 'VPBank', age: '14 ngày', balance: '242.000.000 đ', risk: 91, kyc: 'BASIC' }
+                ],
+                edges: [
+                    { from: 'CIR_A', to: 'CIR_B', label: '248.000.000 đ', arrows: 'to', color: '#f59e0b', width: 3 },
+                    { from: 'CIR_B', to: 'CIR_C', label: '245.000.000 đ', arrows: 'to', color: '#f59e0b', width: 3 },
+                    { from: 'CIR_C', to: 'CIR_D', label: '242.000.000 đ', arrows: 'to', color: '#f59e0b', width: 3 },
+                    { from: 'CIR_D', to: 'CIR_A', label: '240.000.000 đ (Khép vòng)', arrows: 'to', color: '#ef4444', width: 4 }
+                ],
+                alerts: [
+                    {
+                        type: 'DANGER',
+                        title: 'PHÁT HIỆN CHU TRÌNH RỬA TIỀN (TARJAN CYCLE)',
+                        detail: 'Phát hiện luồng tiền khép kín A -> B -> C -> D -> A qua 4 ngân hàng khác nhau với hao hụt < 4%.',
+                        time: '10:25:30',
+                        badge: 'RỬA TIỀN',
+                        badgeColor: 'text-amber-400 bg-amber-950/70 border-amber-800'
+                    }
+                ]
+            }
+        };
+
+        // Node Styling Configuration
+        const GROUP_STYLES = {
+            legit: { color: { background: '#059669', border: '#10b981' }, font: { color: '#ffffff' }, shape: 'dot', size: 25 },
+            merchant: { color: { background: '#0d9488', border: '#2dd4bf' }, font: { color: '#ffffff' }, shape: 'hexagon', size: 28 },
+            victim: { color: { background: '#0284c7', border: '#38bdf8' }, font: { color: '#ffffff' }, shape: 'dot', size: 26 },
+            mule: { color: { background: '#dc2626', border: '#ef4444' }, font: { color: '#ffffff' }, shape: 'dot', size: 24 },
+            boss: { color: { background: '#7c3aed', border: '#a855f7' }, font: { color: '#ffffff' }, shape: 'diamond', size: 36 },
+            cycle: { color: { background: '#d97706', border: '#f59e0b' }, font: { color: '#ffffff' }, shape: 'dot', size: 27 },
+            frozen: { color: { background: '#374151', border: '#9ca3af' }, font: { color: '#9ca3af' }, shape: 'dot', size: 22 }
+        };
+
+        function initGraph() {
+            const container = document.getElementById('network-canvas');
+            nodesDataset = new vis.DataSet([]);
+            edgesDataset = new vis.DataSet([]);
+
+            const data = { nodes: nodesDataset, edges: edgesDataset };
+            const options = {
+                nodes: {
+                    borderWidth: 2,
+                    shadow: true,
+                    font: { size: 12, face: 'Inter, sans-serif' }
+                },
+                edges: {
+                    smooth: { type: 'curvedCW', roundness: 0.2 },
+                    font: { size: 11, align: 'top', color: '#94a3b8', strokeWidth: 0 },
+                    shadow: true
+                },
+                physics: {
+                    stabilization: false,
+                    barnesHut: { gravitationalConstant: -3000, springConstant: 0.04, springLength: 150 }
+                },
+                groups: GROUP_STYLES,
+                interaction: { hover: true, tooltipDelay: 100 }
+            };
+
+            network = new vis.Network(container, data, options);
+
+            network.on('click', function(params) {
+                if (params.nodes.length > 0) {
+                    const nodeId = params.nodes[0];
+                    showNodeDetail(nodeId);
+                }
+            });
+
+            loadScenario('smurfing');
+        }
+
+        function loadScenario(key) {
+            currentScenario = key;
+            const sc = SCENARIOS[key];
+            
+            // Update UI buttons
+            document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('ring-2', 'ring-cyan-400'));
+            const activeBtn = document.getElementById(`btn-${key}`);
+            if (activeBtn) activeBtn.classList.add('ring-2', 'ring-cyan-400');
+
+            // Update Brief Toast
+            document.getElementById('brief-title').innerText = sc.title;
+            const badge = document.getElementById('brief-badge');
+            badge.innerText = sc.badge;
+            badge.className = `text-[10px] px-2 py-0.5 rounded font-mono ${sc.badgeClass}`;
+            document.getElementById('brief-desc').innerText = sc.desc;
+
+            // Load Nodes and Edges into Vis.js
+            nodesDataset.clear();
+            edgesDataset.clear();
+
+            sc.nodes.forEach(n => {
+                nodesDataset.add({
+                    id: n.id,
+                    label: n.label,
+                    group: n.group,
+                    raw: n
+                });
+            });
+
+            sc.edges.forEach((e, idx) => {
+                edgesDataset.add({
+                    id: `e_${idx}`,
+                    from: e.from,
+                    to: e.to,
+                    label: e.label,
+                    arrows: e.arrows,
+                    color: { color: e.color },
+                    width: e.width || 2
+                });
+            });
+
+            network.fit({ animation: { duration: 800 } });
+
+            // Render alerts
+            renderAlerts(sc.alerts);
+            switchTab('alerts');
+        }
+
+        function renderAlerts(alerts) {
+            const container = document.getElementById('alerts-container');
+            const countBadge = document.getElementById('alert-count');
+            countBadge.innerText = alerts.length;
+            container.innerHTML = '';
+
+            alerts.forEach(a => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-900/90 border border-borderClr p-3 rounded-xl space-y-1.5 shadow";
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] px-2 py-0.5 rounded font-mono border ${a.badgeColor}">${a.badge}</span>
+                        <span class="text-[10px] text-slate-500 font-mono">${a.time}</span>
+                    </div>
+                    <div class="font-bold text-slate-200 text-xs">${a.title}</div>
+                    <p class="text-[11px] text-slate-400 leading-normal">${a.detail}</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function showNodeDetail(nodeId) {
+            const nodeData = nodesDataset.get(nodeId);
+            if (!nodeData || !nodeData.raw) return;
+
+            selectedNode = nodeData.raw;
+
+            document.getElementById('node-empty-state').classList.add('hidden');
+            document.getElementById('node-details').classList.remove('hidden');
+
+            document.getElementById('detail-id').innerText = selectedNode.id;
+            document.getElementById('detail-name').innerText = selectedNode.label.split('\n')[0];
+            document.getElementById('detail-bank').innerText = selectedNode.bank;
+            document.getElementById('detail-age').innerText = selectedNode.age;
+            document.getElementById('detail-balance').innerText = selectedNode.balance;
+
+            const kycEl = document.getElementById('detail-kyc');
+            kycEl.innerText = selectedNode.kyc;
+            if (selectedNode.kyc.includes('CHIP')) {
+                kycEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-800';
+            } else {
+                kycEl.className = 'px-2 py-0.5 rounded text-[10px] font-mono bg-rose-950 text-rose-300 border border-rose-800';
+            }
+
+            const riskEl = document.getElementById('detail-risk-score');
+            const barEl = document.getElementById('detail-risk-bar');
+            riskEl.innerText = `${selectedNode.risk}/100`;
+            barEl.style.width = `${selectedNode.risk}%`;
+
+            if (selectedNode.risk > 80) {
+                riskEl.className = 'font-mono font-bold text-sm text-rose-400';
+                barEl.className = 'bg-rose-500 h-full transition-all duration-500';
+                document.getElementById('detail-risk-reason').innerText = 'Cực kỳ nguy hiểm: Tài khoản rác nhận luồng tiền chia nhỏ bất thường hoặc khép vòng chu trình.';
+            } else {
+                riskEl.className = 'font-mono font-bold text-sm text-emerald-400';
+                barEl.className = 'bg-emerald-500 h-full transition-all duration-500';
+                document.getElementById('detail-risk-reason').innerText = 'An toàn: Hành vi thanh toán thông thường, hồ sơ định danh chuẩn mực.';
+            }
+
+            switchTab('node-info');
+        }
+
+        function switchTab(tab) {
+            if (tab === 'alerts') {
+                document.getElementById('tab-alerts').classList.remove('hidden');
+                document.getElementById('tab-node-info').classList.add('hidden');
+                document.getElementById('tab-alerts-btn').className = "flex-1 py-3 text-center border-b-2 border-cyan-400 text-cyan-400 bg-slate-900/50";
+                document.getElementById('tab-node-btn').className = "flex-1 py-3 text-center text-slate-400 hover:text-slate-200";
+            } else {
+                document.getElementById('tab-alerts').classList.add('hidden');
+                document.getElementById('tab-node-info').classList.remove('hidden');
+                document.getElementById('tab-node-btn').className = "flex-1 py-3 text-center border-b-2 border-cyan-400 text-cyan-400 bg-slate-900/50";
+                document.getElementById('tab-alerts-btn').className = "flex-1 py-3 text-center text-slate-400 hover:text-slate-200";
+            }
+        }
+
+        function autoFreezeMules() {
+            let frozenCount = 0;
+            const currentNodes = nodesDataset.get();
+
+            currentNodes.forEach(n => {
+                if (n.group === 'mule' || n.group === 'boss' || n.group === 'cycle') {
+                    nodesDataset.update({
+                        id: n.id,
+                        group: 'frozen',
+                        label: `[ĐÃ KHÓA 🔒]\n${n.label.split('\n')[0]}`
+                    });
+                    frozenCount++;
+                }
+            });
+
+            totalPreventedVnd += 47500000;
+            document.getElementById('metric-prevented').innerText = `${totalPreventedVnd.toLocaleString('vi-VN')} đ`;
+            
+            const alertsCont = document.getElementById('alerts-container');
+            const alertCard = document.createElement('div');
+            alertCard.className = "bg-rose-950/80 border border-rose-700 p-3 rounded-xl space-y-1.5 shadow-xl animate-pulse";
+            alertCard.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] px-2 py-0.5 rounded font-mono border bg-rose-900 text-rose-200 border-rose-600">LỆNH PHONG TỎA ĐÃ THỰC THI</span>
+                    <span class="text-[10px] text-rose-300 font-mono">VỪA XONG</span>
+                </div>
+                <div class="font-bold text-white text-xs">⚡ ĐÃ KHÓA ${frozenCount} TÀI KHOẢN MULE THÀNH CÔNG</div>
+                <p class="text-[11px] text-rose-200 leading-normal">
+                    Gửi tín hiệu API sang hệ thống NAPAS 24/7 & Ngân hàng thành viên: Tạm dừng toàn bộ giao dịch rút tiền mặt tại ATM & chuyển khoản liên ngân hàng.
+                </p>
+            `;
+            alertsCont.prepend(alertCard);
+            document.getElementById('alert-count').innerText = parseInt(document.getElementById('alert-count').innerText) + 1;
+            switchTab('alerts');
+
+            alert(`✅ ĐÃ KÍCH HOẠT LỆNH PHONG TỎA KHẨN CẤP!\nĐã khóa thành công ${frozenCount} tài khoản rác.\nBảo toàn 47.500.000 VNĐ cho nạn nhân.`);
+        }
+
+        function freezeSingleAccount() {
+            if (!selectedNode) return;
+            nodesDataset.update({
+                id: selectedNode.id,
+                group: 'frozen',
+                label: `[ĐÃ KHÓA 🔒]\n${selectedNode.label.split('\n')[0]}`
+            });
+            alert(`Đã phong tỏa tài khoản ${selectedNode.id} thành công theo điều 11 QĐ 2345!`);
+            showNodeDetail(selectedNode.id);
+        }
+
+        window.onload = function() {
+            initGraph();
+            lucide.createIcons();
+        };
+    </script>
+</body>
+</html>
